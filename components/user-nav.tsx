@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,12 +11,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { LogOut, CreditCard, History, ChevronDown } from "lucide-react"
+import { LogOut, CreditCard, History, ChevronDown, Shield } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
+import { getUserBankroll } from "@/lib/supabase"
 
 export function UserNav() {
   const { user, currentCharacter, isAuthenticated, login, logout, switchCharacter } = useAuth()
-  const balance = 1000 // Placeholder balance - in a real app, this would come from the user data
+  const [balance, setBalance] = useState<number>(0)
+
+  // Fetch the user's balance when the component mounts or when the user/character changes
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (user?.id && currentCharacter?.id) {
+        const userBalance = await getUserBankroll(user.id, currentCharacter.id)
+        setBalance(userBalance)
+      }
+    }
+
+    if (isAuthenticated) {
+      fetchBalance()
+    }
+  }, [user, currentCharacter, isAuthenticated])
 
   if (!isAuthenticated) {
     return (
@@ -88,12 +104,17 @@ export function UserNav() {
               <span>Retrait</span>
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/history" className="flex items-center">
-              <History className="mr-2 h-4 w-4" />
-              <span>Historique des Paris</span>
-            </Link>
-          </DropdownMenuItem>
+          {user?.id === 2125 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/admin" className="flex items-center">
+                  <Shield className="mr-2 h-4 w-4" />
+                  <span>Admin Panel</span>
+                </Link>
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout}>
             <LogOut className="mr-2 h-4 w-4" />
