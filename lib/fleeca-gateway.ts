@@ -19,7 +19,7 @@ interface FlecaPaymentResponse {
  * @param amount Amount to deposit
  * @returns Success status and message
  */
-export async function processDeposit(userId: number, characterId: number, amount: number, token?: string): Promise<{ success: boolean; message: string; rawContent?: string; paymentUrl?: string }> {
+export async function processDeposit(userId: number, characterId: number, amount: number): Promise<{ success: boolean; message: string }> {
   try {
     // Get the gateway URLs and auth key from environment variables
     const gatewayUrl = process.env.FLEECA_GATEWAY_URL;
@@ -35,65 +35,37 @@ export async function processDeposit(userId: number, characterId: number, amount
     // Type 0 is the only type that exists according to the requirements
     const paymentUrl = `${gatewayUrl}${authKey}/0/${amount}`;
 
-    // If no token is provided, return the payment URL for the client to use
-    if (!token) {
-      return { 
-        success: false, 
-        message: 'Token is required to complete the payment', 
-        paymentUrl 
-      };
-    }
+    // Make the request to the Fleeca Gateway
+    const response = await fetch(paymentUrl);
 
-    // Make a POST request to the token URL with the token
-    const tokenResponse = await fetch(`${tokenUrl}${token}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    // Clone the response to read the text without consuming the original
-    const responseClone = tokenResponse.clone();
-    let rawContent: string;
-    try {
-      rawContent = await responseClone.text();
-      console.log('Raw response content:', rawContent);
-    } catch (textError) {
-      console.error('Could not read response text:', textError);
-      rawContent = 'Could not read response text';
-    }
-
-    if (!tokenResponse.ok) {
-      console.error('Fleeca Gateway token error:', tokenResponse.status, tokenResponse.statusText);
-      return { 
-        success: false, 
-        message: 'Payment gateway token error', 
-        rawContent 
-      };
+    if (!response.ok) {
+      console.error('Fleeca Gateway error:', response.status, response.statusText);
+      return { success: false, message: 'Payment gateway error' };
     }
 
     // Check if the response is JSON
-    const contentType = tokenResponse.headers.get('content-type');
+    const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
       console.error('Fleeca Gateway returned non-JSON response:', contentType);
-      return { 
-        success: false, 
-        message: 'Payment gateway returned an invalid response format', 
-        rawContent 
-      };
+
+      // Try to get the text of the response for debugging
+      try {
+        const text = await response.text();
+        console.error('Response text:', text.substring(0, 200) + '...');
+      } catch (textError) {
+        console.error('Could not read response text:', textError);
+      }
+
+      return { success: false, message: 'Payment gateway returned an invalid response format' };
     }
 
     // Parse the response
     let data: FlecaPaymentResponse;
     try {
-      data = await tokenResponse.json();
+      data = await response.json();
     } catch (jsonError) {
       console.error('Failed to parse JSON response:', jsonError);
-      return { 
-        success: false, 
-        message: 'Failed to parse payment gateway response', 
-        rawContent 
-      };
+      return { success: false, message: 'Failed to parse payment gateway response' };
     }
 
     // Check if the payment was successful
@@ -115,29 +87,25 @@ export async function processDeposit(userId: number, characterId: number, amount
 
         return { 
           success: true, 
-          message: `Deposit of $${amount} was successful. Your new balance is $${newBalance}.`,
-          rawContent
+          message: `Deposit of $${amount} was successful. Your new balance is $${newBalance}.` 
         };
       } else {
         return { 
           success: false, 
-          message: 'Payment was processed but there was an error updating your balance.',
-          rawContent
+          message: 'Payment was processed but there was an error updating your balance.' 
         };
       }
     } else {
       return { 
         success: false, 
-        message: `Payment failed: ${data.message}`,
-        rawContent
+        message: `Payment failed: ${data.message}` 
       };
     }
   } catch (error) {
     console.error('Error processing deposit:', error);
     return { 
       success: false, 
-      message: 'An unexpected error occurred while processing your deposit.',
-      rawContent: error instanceof Error ? error.message : 'Unknown error'
+      message: 'An unexpected error occurred while processing your deposit.' 
     };
   }
 }

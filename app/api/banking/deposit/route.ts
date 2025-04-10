@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   try {
     // Parse the request body
     const body = await request.json();
-    const { userId, characterId, amount, token } = body;
+    const { userId, characterId, amount } = body;
 
     // Validate the request
     if (!userId || !characterId || !amount) {
@@ -25,18 +25,14 @@ export async function POST(request: Request) {
     }
 
     // Process the deposit
-    const result = await processDeposit(userId, characterId, depositAmount, token);
+    const result = await processDeposit(userId, characterId, depositAmount);
 
     // Return the result
     return NextResponse.json(result);
   } catch (error) {
     console.error("Deposit error:", error);
     return NextResponse.json(
-      { 
-        success: false, 
-        message: "An error occurred while processing your deposit",
-        rawContent: error instanceof Error ? error.message : "Unknown error"
-      },
+      { success: false, message: "An error occurred while processing your deposit" },
       { status: 500 }
     );
   }
