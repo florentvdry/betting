@@ -37,7 +37,7 @@ function AuthCallbackContent() {
   const exchangeCodeForToken = async (code: string) => {
     try {
       // Determine the redirect URI
-      const redirectUri = 'https://ls-betting.vercel.app/callback'
+      const redirectUri = 'https://ls-betting-sqbfwr.vercel.app/callback'
 
       // Make a request to our API route that will handle the token exchange
       // Client credentials are now handled server-side
