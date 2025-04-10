@@ -1,12 +1,45 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { BettingCategories } from "@/components/betting-categories"
 import { MatchCard } from "@/components/match-card"
 import { getStartingSoonMatches } from "@/lib/match-data"
 import { Badge } from "@/components/ui/badge"
 import { Clock } from "lucide-react"
+import { SportFilter } from "@/components/sport-filter"
+import type { Match } from "@/lib/match-data"
 
-export default async function StartingSoonPage() {
-  // Récupérer les matchs qui commencent bientôt, déjà triés par date
-  const startingSoonMatches = await getStartingSoonMatches()
+export default function StartingSoonPage() {
+  const [startingSoonMatches, setStartingSoonMatches] = useState<Match[]>([])
+  const [filteredMatches, setFilteredMatches] = useState<Match[]>([])
+  const [selectedCategory, setSelectedCategory] = useState("all")
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchMatches = async () => {
+      setIsLoading(true)
+      try {
+        const matches = await getStartingSoonMatches()
+        setStartingSoonMatches(matches)
+        setFilteredMatches(matches)
+      } catch (error) {
+        console.error("Erreur lors de la récupération des matchs imminents:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchMatches()
+  }, [])
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category)
+    if (category === "all") {
+      setFilteredMatches(startingSoonMatches)
+    } else {
+      setFilteredMatches(startingSoonMatches.filter((match) => match.category === category))
+    }
+  }
 
   return (
     <div className="container mx-auto py-6">
@@ -23,13 +56,19 @@ export default async function StartingSoonPage() {
         </div>
 
         <div className="md:w-3/4">
-          {startingSoonMatches.length === 0 ? (
+          <SportFilter selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+
+          {isLoading ? (
+            <div className="text-center py-12">Chargement des matchs imminents...</div>
+          ) : filteredMatches.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              Aucun match imminent disponible pour le moment. Veuillez vérifier plus tard.
+              {selectedCategory === "all"
+                ? "Aucun match imminent disponible pour le moment. Veuillez vérifier plus tard."
+                : `Aucun match imminent disponible pour le moment dans la catégorie ${selectedCategory}.`}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {startingSoonMatches.map((match) => (
+              {filteredMatches.map((match) => (
                 <MatchCard
                   key={match.id}
                   id={match.id}
