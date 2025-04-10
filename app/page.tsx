@@ -16,6 +16,8 @@ export default async function Home() {
 
   return (
     <section className="container mx-auto py-6">
+      <h1 className="text-3xl font-bold mb-6">Accueil</h1>
+
       <div className="flex flex-col md:flex-row gap-6">
         <div className="md:w-1/4">
           <BettingCategories />

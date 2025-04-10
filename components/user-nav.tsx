@@ -33,18 +33,16 @@ export function UserNav() {
 
   return (
     <div className="flex items-center gap-4">
-      <div className="hidden md:block">
-        <div className="text-xs text-muted-foreground">Solde</div>
-        <div className="font-medium">{balance.toFixed(2)}€</div>
-      </div>
-
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className="relative h-8 flex items-center gap-1">
             <Avatar className="h-8 w-8">
-              <AvatarFallback>RP</AvatarFallback>
+              <AvatarFallback>HY</AvatarFallback>
             </Avatar>
-            <span className="hidden md:inline-block">Joueur123</span>
+            <div className="hidden md:block">
+              <div className="text-xs text-muted-foreground">Hana Yoshida</div>
+              <div className="font-medium text-xs">${new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(balance)}</div>
+            </div>
             <ChevronDown className="h-4 w-4 opacity-50" />
           </Button>
         </DropdownMenuTrigger>

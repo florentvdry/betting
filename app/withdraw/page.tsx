@@ -63,7 +63,7 @@ export default function WithdrawPage() {
         </CardContent>
 
         <CardFooter className="flex flex-col items-start">
-          <p className="text-sm text-muted-foreground">Note: Les fonds seront transférés vers votre compte en jeu.</p>
+          <p className="text-sm text-muted-foreground">Note: Les virements sont instantanés, mais peuvent prendre quelques minutes.</p>
         </CardFooter>
       </Card>
     </div>

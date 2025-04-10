@@ -66,8 +66,8 @@ export default function MyBetsPage() {
 
       <Tabs defaultValue="active" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="active">Paris Actifs</TabsTrigger>
-          <TabsTrigger value="settled">Paris Réglés</TabsTrigger>
+          <TabsTrigger value="active">Paris en cours</TabsTrigger>
+          <TabsTrigger value="settled">Paris terminés</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="mt-4">
