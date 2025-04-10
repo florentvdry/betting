@@ -7,7 +7,7 @@ export async function GET() {
     
     // Determine the redirect URI based on the environment
     const redirectUri = process.env.NODE_ENV === "production"
-      ? `${process.env.NEXT_PUBLIC_APP_URL || "https://your-production-url.com"}/auth/callback`
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
       : "http://localhost:3000/auth/callback"
     
     // Create the authorization URL
