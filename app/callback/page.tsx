@@ -97,6 +97,9 @@ function AuthCallbackContent() {
       // Store user data in localStorage
       localStorage.setItem("userData", JSON.stringify(userData))
 
+      // Dispatch a custom event to notify the AuthProvider that the user has logged in
+      window.dispatchEvent(new Event('auth-state-changed'))
+
       // The AuthProvider will pick up the token and user data on next render/navigation
     } catch (error) {
       console.error("Error fetching user data:", error)

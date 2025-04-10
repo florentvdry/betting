@@ -147,7 +147,7 @@ export async function createBet(
   // Update user's bankroll
   const newBalance = balance - amount;
   const updated = await updateUserBankroll(userId, characterId, newBalance);
-  
+
   return updated;
 }
 
@@ -228,6 +228,36 @@ export async function getUserNotifications(userId: number, characterId: number):
   }
 
   return data || [];
+}
+
+export async function markNotificationAsRead(notificationId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('id', notificationId);
+
+  if (error) {
+    console.error('Error marking notification as read:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function markAllNotificationsAsRead(userId: number, characterId: number): Promise<boolean> {
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('user_id', userId)
+    .eq('character_id', characterId)
+    .eq('read', false);
+
+  if (error) {
+    console.error('Error marking all notifications as read:', error);
+    return false;
+  }
+
+  return true;
 }
 
 // Admin functions

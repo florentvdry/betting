@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  // Check if the user is already authenticated on mount
+  // Check if the user is already authenticated on mount or when auth state changes
   useEffect(() => {
     const checkAuth = async () => {
       setIsLoading(true)
@@ -160,7 +160,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Run checkAuth on mount
     checkAuth()
+
+    // Add event listener for auth state changes
+    const handleAuthStateChange = () => {
+      checkAuth()
+    }
+
+    window.addEventListener('auth-state-changed', handleAuthStateChange)
+
+    // Clean up event listener on unmount
+    return () => {
+      window.removeEventListener('auth-state-changed', handleAuthStateChange)
+    }
   }, [])
 
   // Login function - redirects to the OAuth authorization endpoint
@@ -189,6 +202,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false)
     setUser(null)
     setCurrentCharacter(null)
+
+    // Dispatch event to notify other components that auth state has changed
+    window.dispatchEvent(new Event('auth-state-changed'))
   }
 
   // Function to switch between characters
@@ -200,6 +216,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentCharacter(character);
       // Save the current character ID to localStorage
       localStorage.setItem("currentCharacterId", characterId.toString());
+
+      // Dispatch event to notify other components that auth state has changed
+      window.dispatchEvent(new Event('auth-state-changed'));
     }
   }
 

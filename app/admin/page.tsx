@@ -29,12 +29,12 @@ export default function AdminPage() {
           getAllBets(),
           getAllWithdrawRequests()
         ])
-        
+
         setBets(betsData)
         setWithdrawRequests(withdrawData)
       } catch (error) {
         console.error("Error fetching admin data:", error)
-        toast.error("Failed to load admin data")
+        toast.error("Échec du chargement des données d'administration")
       }
     }
 
@@ -50,22 +50,22 @@ export default function AdminPage() {
 
     try {
       const result = await processWithdrawRequest(requestId, approved, adminNote)
-      
+
       if (result) {
-        toast.success(`Withdraw request ${approved ? 'approved' : 'rejected'} successfully`)
-        
+        toast.success(`Demande de retrait ${approved ? 'approuvée' : 'refusée'} avec succès`)
+
         // Refresh the withdraw requests
         const updatedRequests = await getAllWithdrawRequests()
         setWithdrawRequests(updatedRequests)
-        
+
         // Clear the admin note
         setAdminNote("")
       } else {
-        toast.error("Failed to process withdraw request")
+        toast.error("Échec du traitement de la demande de retrait")
       }
     } catch (error) {
       console.error("Error processing withdraw request:", error)
-      toast.error("An error occurred while processing the withdraw request")
+      toast.error("Une erreur s'est produite lors du traitement de la demande de retrait")
     } finally {
       setIsProcessing(false)
       setCurrentRequestId(null)
@@ -80,19 +80,19 @@ export default function AdminPage() {
 
   return (
     <div className="container py-10">
-      <h1 className="text-3xl font-bold mb-6">Admin Panel</h1>
-      
+      <h1 className="text-3xl font-bold mb-6">Panneau d'Administration</h1>
+
       <Tabs defaultValue="bets">
         <TabsList className="mb-4">
-          <TabsTrigger value="bets">All Bets</TabsTrigger>
-          <TabsTrigger value="withdraws">Withdraw Requests</TabsTrigger>
+          <TabsTrigger value="bets">Tous les Paris</TabsTrigger>
+          <TabsTrigger value="withdraws">Demandes de Retrait</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="bets">
           <Card>
             <CardHeader>
-              <CardTitle>All Bets</CardTitle>
-              <CardDescription>View all bets placed by users</CardDescription>
+              <CardTitle>Tous les Paris</CardTitle>
+              <CardDescription>Voir tous les paris placés par les utilisateurs</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -100,13 +100,13 @@ export default function AdminPage() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-2">Date</th>
-                      <th className="text-left p-2">User ID</th>
-                      <th className="text-left p-2">Character ID</th>
+                      <th className="text-left p-2">ID Utilisateur</th>
+                      <th className="text-left p-2">ID Personnage</th>
                       <th className="text-left p-2">Match</th>
-                      <th className="text-left p-2">Amount</th>
-                      <th className="text-left p-2">Odds</th>
+                      <th className="text-left p-2">Montant</th>
+                      <th className="text-left p-2">Cotes</th>
                       <th className="text-left p-2">Type</th>
-                      <th className="text-left p-2">Status</th>
+                      <th className="text-left p-2">Statut</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -132,7 +132,7 @@ export default function AdminPage() {
                     ) : (
                       <tr>
                         <td colSpan={8} className="p-4 text-center text-muted-foreground">
-                          No bets found
+                          Aucun pari trouvé
                         </td>
                       </tr>
                     )}
@@ -142,12 +142,12 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="withdraws">
           <Card>
             <CardHeader>
-              <CardTitle>Withdraw Requests</CardTitle>
-              <CardDescription>Manage user withdraw requests</CardDescription>
+              <CardTitle>Demandes de Retrait</CardTitle>
+              <CardDescription>Gérer les demandes de retrait des utilisateurs</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -155,10 +155,10 @@ export default function AdminPage() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-2">Date</th>
-                      <th className="text-left p-2">User ID</th>
-                      <th className="text-left p-2">Character ID</th>
-                      <th className="text-left p-2">Amount</th>
-                      <th className="text-left p-2">Status</th>
+                      <th className="text-left p-2">ID Utilisateur</th>
+                      <th className="text-left p-2">ID Personnage</th>
+                      <th className="text-left p-2">Montant</th>
+                      <th className="text-left p-2">Statut</th>
                       <th className="text-left p-2">Actions</th>
                     </tr>
                   </thead>
@@ -181,7 +181,7 @@ export default function AdminPage() {
                                     onClick={() => handleProcessWithdraw(request.id, true)}
                                     disabled={isProcessing && currentRequestId === request.id}
                                   >
-                                    {isProcessing && currentRequestId === request.id ? "Processing..." : "Approve"}
+                                    {isProcessing && currentRequestId === request.id ? "Traitement en cours..." : "Approuver"}
                                   </Button>
                                   <Button 
                                     size="sm" 
@@ -189,12 +189,12 @@ export default function AdminPage() {
                                     onClick={() => handleProcessWithdraw(request.id, false)}
                                     disabled={isProcessing && currentRequestId === request.id}
                                   >
-                                    {isProcessing && currentRequestId === request.id ? "Processing..." : "Reject"}
+                                    {isProcessing && currentRequestId === request.id ? "Traitement en cours..." : "Refuser"}
                                   </Button>
                                 </div>
                                 <div className="mt-2">
                                   <Input
-                                    placeholder="Admin note (required for rejection)"
+                                    placeholder="Note d'administration (requise pour le refus)"
                                     value={currentRequestId === request.id ? adminNote : ""}
                                     onChange={(e) => setAdminNote(e.target.value)}
                                     disabled={isProcessing && currentRequestId === request.id}
@@ -208,7 +208,7 @@ export default function AdminPage() {
                     ) : (
                       <tr>
                         <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                          No withdraw requests found
+                          Aucune demande de retrait trouvée
                         </td>
                       </tr>
                     )}
