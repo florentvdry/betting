@@ -56,29 +56,36 @@ export interface Notification {
 
 // Bankroll functions
 export async function getUserBankroll(userId: number, characterId: number): Promise<number> {
+  // Use maybeSingle() instead of single() to avoid error when no record is found
   const { data, error } = await supabase
     .from('user_bankroll')
     .select('balance')
     .eq('user_id', userId)
     .eq('character_id', characterId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     console.error('Error fetching bankroll:', error);
     return 0;
   }
 
-  return data.balance;
+  // If no data is found, return 0 as the default balance
+  return data?.balance || 0;
 }
 
 export async function updateUserBankroll(userId: number, characterId: number, amount: number): Promise<boolean> {
   // First check if the user already has a bankroll entry
-  const { data: existingBankroll } = await supabase
+  const { data: existingBankroll, error } = await supabase
     .from('user_bankroll')
     .select('id, balance')
     .eq('user_id', userId)
     .eq('character_id', characterId)
-    .single();
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error checking existing bankroll:', error);
+    return false;
+  }
 
   if (existingBankroll) {
     // Update existing bankroll
@@ -299,7 +306,7 @@ export async function processWithdrawRequest(
     .from('withdraw_requests')
     .select('*')
     .eq('id', requestId)
-    .single();
+    .maybeSingle();
 
   if (fetchError || !request) {
     console.error('Error fetching withdraw request:', fetchError);

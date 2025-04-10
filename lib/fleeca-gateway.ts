@@ -37,23 +37,45 @@ export async function processDeposit(userId: number, characterId: number, amount
 
     // Make the request to the Fleeca Gateway
     const response = await fetch(paymentUrl);
-    
+
     if (!response.ok) {
       console.error('Fleeca Gateway error:', response.status, response.statusText);
       return { success: false, message: 'Payment gateway error' };
     }
 
+    // Check if the response is JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('Fleeca Gateway returned non-JSON response:', contentType);
+
+      // Try to get the text of the response for debugging
+      try {
+        const text = await response.text();
+        console.error('Response text:', text.substring(0, 200) + '...');
+      } catch (textError) {
+        console.error('Could not read response text:', textError);
+      }
+
+      return { success: false, message: 'Payment gateway returned an invalid response format' };
+    }
+
     // Parse the response
-    const data: FlecaPaymentResponse = await response.json();
+    let data: FlecaPaymentResponse;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      console.error('Failed to parse JSON response:', jsonError);
+      return { success: false, message: 'Failed to parse payment gateway response' };
+    }
 
     // Check if the payment was successful
     if (data.message === 'successful_payment') {
       // Update the user's bankroll
       const currentBalance = await getUserBankroll(userId, characterId);
       const newBalance = currentBalance + amount;
-      
+
       const updated = await updateUserBankroll(userId, characterId, newBalance);
-      
+
       if (updated) {
         // Create a notification for the user
         await createNotification(
@@ -62,7 +84,7 @@ export async function processDeposit(userId: number, characterId: number, amount
           `Your deposit of $${amount} was successful.`,
           'deposit_success'
         );
-        
+
         return { 
           success: true, 
           message: `Deposit of $${amount} was successful. Your new balance is $${newBalance}.` 
