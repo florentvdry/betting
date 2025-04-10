@@ -9,7 +9,7 @@ export async function GET() {
     const redirectUri = 'https://ls-betting-sqbfwr.vercel.app/callback'
     
     // Create the authorization URL
-    const authUrl = new URL("https://ucp.gta.world/oauth/authorize")
+    const authUrl = new URL("https://ucp-fr.gta.world/oauth/authorize")
     authUrl.searchParams.append("client_id", clientId)
     authUrl.searchParams.append("redirect_uri", redirectUri)
     authUrl.searchParams.append("response_type", "code")

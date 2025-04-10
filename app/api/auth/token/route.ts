@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Make a request to the GTA World OAuth token endpoint
-    const tokenResponse = await fetch("https://ucp.gta.world/oauth/token", {
+    const tokenResponse = await fetch("https://ucp-fr.gta.world/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",

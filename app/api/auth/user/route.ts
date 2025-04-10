@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const accessToken = authHeader.substring(7) // Remove "Bearer " prefix
     
     // Make a request to the GTA World API to get user data
-    const userResponse = await fetch("https://ucp.gta.world/api/user", {
+    const userResponse = await fetch("https://ucp-fr.gta.world/api/user", {
       headers: {
         "Authorization": `Bearer ${accessToken}`
       }
