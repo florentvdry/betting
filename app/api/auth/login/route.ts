@@ -6,9 +6,7 @@ export async function GET() {
     const clientId = process.env.GTA_CLIENT_ID
     
     // Determine the redirect URI based on the environment
-    const redirectUri = process.env.NODE_ENV === "production"
-      ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
-      : "http://localhost:3000/auth/callback"
+    const redirectUri = 'https://ls-betting.vercel.app/auth/callback'
     
     // Create the authorization URL
     const authUrl = new URL("https://ucp.gta.world/oauth/authorize")
