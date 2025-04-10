@@ -75,11 +75,8 @@ export function UserNav() {
   if (!isAuthenticated) {
     return (
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={login}>
+        <Button size="sm" onClick={login}>
           Connexion
-        </Button>
-        <Button size="sm" asChild>
-          <Link href="/register">Inscription</Link>
         </Button>
       </div>
     )
