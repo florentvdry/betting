@@ -164,19 +164,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Login function - redirects to the OAuth authorization endpoint
-  const login = () => {
-    const clientId = process.env.NEXT_PUBLIC_GTA_CLIENT_ID || "YOUR_CLIENT_ID"
-    const redirectUri = typeof window !== "undefined" 
-      ? `${window.location.origin}/auth/callback`
-      : "http://localhost:3000/auth/callback"
+  const login = async () => {
+    try {
+      // Get the authorization URL from the server-side API
+      const response = await fetch("/api/auth/login")
+      const data = await response.json()
 
-    const authUrl = new URL("https://ucp.gta.world/oauth/authorize")
-    authUrl.searchParams.append("client_id", clientId)
-    authUrl.searchParams.append("redirect_uri", redirectUri)
-    authUrl.searchParams.append("response_type", "code")
-    authUrl.searchParams.append("scope", "")
-
-    window.location.href = authUrl.toString()
+      if (response.ok && data.authUrl) {
+        // Redirect to the authorization URL
+        window.location.href = data.authUrl
+      } else {
+        console.error("Failed to get authorization URL:", data.error)
+      }
+    } catch (error) {
+      console.error("Login error:", error)
+    }
   }
 
   // Logout function - clears the auth state and localStorage

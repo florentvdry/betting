@@ -3,10 +3,14 @@ import { NextRequest, NextResponse } from "next/server"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { grant_type, client_id, client_secret, redirect_uri, code } = body
+    const { grant_type, redirect_uri, code } = body
+
+    // Get client credentials from server-side environment variables
+    const client_id = process.env.GTA_CLIENT_ID
+    const client_secret = process.env.GTA_CLIENT_SECRET
 
     // Validate required parameters
-    if (!grant_type || !client_id || !client_secret || !redirect_uri || !code) {
+    if (!grant_type || !redirect_uri || !code) {
       return NextResponse.json(
         { error: "Missing required parameters" },
         { status: 400 }

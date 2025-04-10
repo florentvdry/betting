@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle } from "lucide-react"
 
-export default function AuthCallbackPage() {
+// Client component that uses useSearchParams
+function AuthCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
@@ -35,14 +36,13 @@ export default function AuthCallbackPage() {
 
   const exchangeCodeForToken = async (code: string) => {
     try {
-      // OAuth configuration
-      const clientId = process.env.NEXT_PUBLIC_GTA_CLIENT_ID || "YOUR_CLIENT_ID"
-      const clientSecret = process.env.NEXT_PUBLIC_GTA_CLIENT_SECRET || "YOUR_CLIENT_SECRET" // Note: In a real app, this should be server-side only
+      // Determine the redirect URI
       const redirectUri = typeof window !== "undefined" 
         ? `${window.location.origin}/auth/callback`
         : "http://localhost:3000/auth/callback"
 
       // Make a request to our API route that will handle the token exchange
+      // Client credentials are now handled server-side
       const response = await fetch("/api/auth/token", {
         method: "POST",
         headers: {
@@ -50,8 +50,6 @@ export default function AuthCallbackPage() {
         },
         body: JSON.stringify({
           grant_type: "authorization_code",
-          client_id: clientId,
-          client_secret: clientSecret,
           redirect_uri: redirectUri,
           code: code,
         }),
@@ -138,5 +136,28 @@ export default function AuthCallbackPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// Main page component that wraps the content in a Suspense boundary
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-10 flex justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">Authentification</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+              <p>Chargement...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   )
 }
