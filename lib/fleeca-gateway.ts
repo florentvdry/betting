@@ -19,7 +19,7 @@ interface FlecaPaymentResponse {
  * @param amount Amount to deposit
  * @returns Success status and message
  */
-export async function processDeposit(userId: number, characterId: number, amount: number): Promise<{ success: boolean; message: string }> {
+export async function processDeposit(userId: number, characterId: number, amount: number): Promise<{ success: boolean; message: string; rawContent?: string }> {
   try {
     // Get the gateway URLs and auth key from environment variables
     const gatewayUrl = process.env.FLEECA_GATEWAY_URL;
@@ -38,25 +38,35 @@ export async function processDeposit(userId: number, characterId: number, amount
     // Make the request to the Fleeca Gateway
     const response = await fetch(paymentUrl);
 
+    // Clone the response to read the text without consuming the original
+    const responseClone = response.clone();
+    let rawContent: string;
+    try {
+      rawContent = await responseClone.text();
+      console.log('Raw response content:', rawContent);
+    } catch (textError) {
+      console.error('Could not read response text:', textError);
+      rawContent = 'Could not read response text';
+    }
+
     if (!response.ok) {
       console.error('Fleeca Gateway error:', response.status, response.statusText);
-      return { success: false, message: 'Payment gateway error' };
+      return { 
+        success: false, 
+        message: 'Payment gateway error', 
+        rawContent 
+      };
     }
 
     // Check if the response is JSON
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
       console.error('Fleeca Gateway returned non-JSON response:', contentType);
-
-      // Try to get the text of the response for debugging
-      try {
-        const text = await response.text();
-        console.error('Response text:', text.substring(0, 200) + '...');
-      } catch (textError) {
-        console.error('Could not read response text:', textError);
-      }
-
-      return { success: false, message: 'Payment gateway returned an invalid response format' };
+      return { 
+        success: false, 
+        message: 'Payment gateway returned an invalid response format', 
+        rawContent 
+      };
     }
 
     // Parse the response
@@ -65,7 +75,11 @@ export async function processDeposit(userId: number, characterId: number, amount
       data = await response.json();
     } catch (jsonError) {
       console.error('Failed to parse JSON response:', jsonError);
-      return { success: false, message: 'Failed to parse payment gateway response' };
+      return { 
+        success: false, 
+        message: 'Failed to parse payment gateway response', 
+        rawContent 
+      };
     }
 
     // Check if the payment was successful
@@ -87,25 +101,29 @@ export async function processDeposit(userId: number, characterId: number, amount
 
         return { 
           success: true, 
-          message: `Deposit of $${amount} was successful. Your new balance is $${newBalance}.` 
+          message: `Deposit of $${amount} was successful. Your new balance is $${newBalance}.`,
+          rawContent
         };
       } else {
         return { 
           success: false, 
-          message: 'Payment was processed but there was an error updating your balance.' 
+          message: 'Payment was processed but there was an error updating your balance.',
+          rawContent
         };
       }
     } else {
       return { 
         success: false, 
-        message: `Payment failed: ${data.message}` 
+        message: `Payment failed: ${data.message}`,
+        rawContent
       };
     }
   } catch (error) {
     console.error('Error processing deposit:', error);
     return { 
       success: false, 
-      message: 'An unexpected error occurred while processing your deposit.' 
+      message: 'An unexpected error occurred while processing your deposit.',
+      rawContent: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 }

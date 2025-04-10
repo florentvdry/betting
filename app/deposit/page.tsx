@@ -15,6 +15,7 @@ export default function DepositPage() {
   const [amount, setAmount] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [balance, setBalance] = useState<number | null>(null)
+  const [rawContent, setRawContent] = useState<string | null>(null)
   const router = useRouter()
 
   // Fetch the user's balance when the component mounts
@@ -59,6 +60,11 @@ export default function DepositPage() {
       })
 
       const data = await response.json()
+
+      // Store the raw content from the API response
+      if (data.rawContent) {
+        setRawContent(data.rawContent)
+      }
 
       if (data.success) {
         toast.success(data.message)
@@ -136,10 +142,19 @@ export default function DepositPage() {
               </div>
         </CardContent>
 
-        <CardFooter className="flex flex-col items-start">
+        <CardFooter className="flex flex-col items-start space-y-4 w-full">
           <p className="text-sm text-muted-foreground">
             Note: Le dépot est instantané, mais peut prendre quelques minutes à s'afficher sur votre relevé Fleeca.
           </p>
+
+          {rawContent && (
+            <div className="w-full border rounded-md p-4 mt-4">
+              <h3 className="text-sm font-medium mb-2">Réponse de l'API Fleeca</h3>
+              <div className="bg-muted p-3 rounded-md overflow-x-auto">
+                <pre className="text-xs whitespace-pre-wrap break-all">{rawContent}</pre>
+              </div>
+            </div>
+          )}
         </CardFooter>
       </Card>
     </div>

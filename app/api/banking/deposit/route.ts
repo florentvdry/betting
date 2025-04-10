@@ -32,7 +32,11 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Deposit error:", error);
     return NextResponse.json(
-      { success: false, message: "An error occurred while processing your deposit" },
+      { 
+        success: false, 
+        message: "An error occurred while processing your deposit",
+        rawContent: error instanceof Error ? error.message : "Unknown error"
+      },
       { status: 500 }
     );
   }
