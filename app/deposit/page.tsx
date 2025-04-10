@@ -174,7 +174,7 @@ export default function DepositPage() {
                   placeholder="Entrez le montant"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || paymentUrl !== null}
                 />
               </div>
 
@@ -185,21 +185,74 @@ export default function DepositPage() {
                     variant="outline" 
                     onClick={() => setAmount(value.toString())} 
                     className="w-full"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || paymentUrl !== null}
                   >
                     ${new Intl.NumberFormat('fr-FR').format(value)}
                   </Button>
                 ))}
               </div>
 
+              {paymentUrl && (
+                <div className="mt-4 p-4 border rounded-md">
+                  <h3 className="text-sm font-medium mb-2">Lien de Paiement</h3>
+                  <div className="flex items-center space-x-2">
+                    <a 
+                      href={paymentUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline break-all"
+                    >
+                      {paymentUrl}
+                    </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(paymentUrl);
+                        toast.success("Lien copié dans le presse-papier");
+                      }}
+                    >
+                      Copier
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Cliquez sur le lien pour effectuer le paiement, puis entrez le token reçu ci-dessous.
+                  </p>
+                </div>
+              )}
+
+              {paymentUrl && (
+                <div className="space-y-2 mt-4">
+                  <Label htmlFor="token">Token de Paiement</Label>
+                  <Input
+                    id="token"
+                    type="text"
+                    placeholder="Entrez le token reçu après le paiement"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              )}
+
               <div className="pt-4">
-                <Button 
-                  onClick={handleDeposit} 
-                  disabled={!amount || Number.parseFloat(amount) <= 0 || isSubmitting} 
-                  className="w-full"
-                >
-                  {isSubmitting ? "Traitement en cours..." : "Déposer Maintenant"}
-                </Button>
+                {!paymentUrl ? (
+                  <Button 
+                    onClick={getPaymentUrl} 
+                    disabled={!amount || Number.parseFloat(amount) <= 0 || isSubmitting} 
+                    className="w-full"
+                  >
+                    {isSubmitting ? "Génération du lien..." : "Générer le Lien de Paiement"}
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={handleDeposit} 
+                    disabled={!token || isSubmitting} 
+                    className="w-full"
+                  >
+                    {isSubmitting ? "Traitement en cours..." : "Valider le Paiement"}
+                  </Button>
+                )}
               </div>
         </CardContent>
 
