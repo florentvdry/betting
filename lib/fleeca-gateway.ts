@@ -19,7 +19,7 @@ interface FlecaPaymentResponse {
  * @param amount Amount to deposit
  * @returns Success status and message
  */
-export async function processDeposit(userId: number, characterId: number, amount: number): Promise<{ success: boolean; message: string; rawContent?: string }> {
+export async function processDeposit(userId: number, characterId: number, amount: number, token?: string): Promise<{ success: boolean; message: string; rawContent?: string; paymentUrl?: string }> {
   try {
     // Get the gateway URLs and auth key from environment variables
     const gatewayUrl = process.env.FLEECA_GATEWAY_URL;
@@ -35,11 +35,25 @@ export async function processDeposit(userId: number, characterId: number, amount
     // Type 0 is the only type that exists according to the requirements
     const paymentUrl = `${gatewayUrl}${authKey}/0/${amount}`;
 
-    // Make the request to the Fleeca Gateway
-    const response = await fetch(paymentUrl);
+    // If no token is provided, return the payment URL for the client to use
+    if (!token) {
+      return { 
+        success: false, 
+        message: 'Token is required to complete the payment', 
+        paymentUrl 
+      };
+    }
+
+    // Make a POST request to the token URL with the token
+    const tokenResponse = await fetch(`${tokenUrl}${token}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
     // Clone the response to read the text without consuming the original
-    const responseClone = response.clone();
+    const responseClone = tokenResponse.clone();
     let rawContent: string;
     try {
       rawContent = await responseClone.text();
@@ -49,17 +63,17 @@ export async function processDeposit(userId: number, characterId: number, amount
       rawContent = 'Could not read response text';
     }
 
-    if (!response.ok) {
-      console.error('Fleeca Gateway error:', response.status, response.statusText);
+    if (!tokenResponse.ok) {
+      console.error('Fleeca Gateway token error:', tokenResponse.status, tokenResponse.statusText);
       return { 
         success: false, 
-        message: 'Payment gateway error', 
+        message: 'Payment gateway token error', 
         rawContent 
       };
     }
 
     // Check if the response is JSON
-    const contentType = response.headers.get('content-type');
+    const contentType = tokenResponse.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
       console.error('Fleeca Gateway returned non-JSON response:', contentType);
       return { 
@@ -72,7 +86,7 @@ export async function processDeposit(userId: number, characterId: number, amount
     // Parse the response
     let data: FlecaPaymentResponse;
     try {
-      data = await response.json();
+      data = await tokenResponse.json();
     } catch (jsonError) {
       console.error('Failed to parse JSON response:', jsonError);
       return { 

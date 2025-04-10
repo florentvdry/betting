@@ -13,9 +13,11 @@ import { getUserBankroll } from "@/lib/supabase"
 export default function DepositPage() {
   const { user, currentCharacter, isAuthenticated, isLoading } = useAuth()
   const [amount, setAmount] = useState<string>("")
+  const [token, setToken] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [balance, setBalance] = useState<number | null>(null)
   const [rawContent, setRawContent] = useState<string | null>(null)
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null)
   const router = useRouter()
 
   // Fetch the user's balance when the component mounts
@@ -32,7 +34,8 @@ export default function DepositPage() {
     }
   }, [user, currentCharacter, isAuthenticated, isLoading])
 
-  const handleDeposit = async () => {
+  // Function to get the payment URL
+  const getPaymentUrl = async () => {
     if (!user?.id || !currentCharacter?.id) {
       toast.error("Vous devez être connecté pour effectuer un dépôt")
       return
@@ -66,6 +69,62 @@ export default function DepositPage() {
         setRawContent(data.rawContent)
       }
 
+      // Store the payment URL
+      if (data.paymentUrl) {
+        setPaymentUrl(data.paymentUrl)
+        toast.info("Veuillez cliquer sur le lien de paiement, puis entrer le token reçu")
+      } else {
+        toast.error(data.message || "Erreur lors de la génération du lien de paiement")
+      }
+    } catch (error) {
+      console.error("Payment URL error:", error)
+      toast.error("Une erreur s'est produite lors de la génération du lien de paiement")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Function to complete the payment with a token
+  const handleDeposit = async () => {
+    if (!user?.id || !currentCharacter?.id) {
+      toast.error("Vous devez être connecté pour effectuer un dépôt")
+      return
+    }
+
+    if (!token) {
+      toast.error("Veuillez entrer un token")
+      return
+    }
+
+    const depositAmount = Number(amount)
+    if (isNaN(depositAmount) || depositAmount <= 0) {
+      toast.error("Veuillez entrer un montant valide")
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch("/api/banking/deposit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          characterId: currentCharacter.id,
+          amount: depositAmount,
+          token: token,
+        }),
+      })
+
+      const data = await response.json()
+
+      // Store the raw content from the API response
+      if (data.rawContent) {
+        setRawContent(data.rawContent)
+      }
+
       if (data.success) {
         toast.success(data.message)
         // Refresh the balance
@@ -73,6 +132,8 @@ export default function DepositPage() {
         setBalance(newBalance)
         // Clear the form
         setAmount("")
+        setToken("")
+        setPaymentUrl(null)
       } else {
         toast.error(data.message)
       }

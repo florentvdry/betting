@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   try {
     // Parse the request body
     const body = await request.json();
-    const { userId, characterId, amount } = body;
+    const { userId, characterId, amount, token } = body;
 
     // Validate the request
     if (!userId || !characterId || !amount) {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     // Process the deposit
-    const result = await processDeposit(userId, characterId, depositAmount);
+    const result = await processDeposit(userId, characterId, depositAmount, token);
 
     // Return the result
     return NextResponse.json(result);
