@@ -37,9 +37,7 @@ function AuthCallbackContent() {
   const exchangeCodeForToken = async (code: string) => {
     try {
       // Determine the redirect URI
-      const redirectUri = typeof window !== "undefined" 
-        ? `${window.location.origin}/auth/callback`
-        : "http://localhost:3000/auth/callback"
+      const redirectUri = 'https://ls-betting-sqbfwr.vercel.app/callback'
 
       // Make a request to our API route that will handle the token exchange
       // Client credentials are now handled server-side
