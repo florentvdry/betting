@@ -1,5 +1,6 @@
 // Implémentation API réelle pour récupérer les données sportives
 import { cache } from "react"
+import { supabase } from "./supabase"
 
 export interface Match {
   id: number
@@ -18,18 +19,169 @@ export interface Match {
   category?: string
 }
 
+// Interface pour la table de cache dans Supabase
+export interface MatchCache {
+  id: number // Changed from string to int
+  matches: Match[]
+  last_updated: string
+  type: "upcoming" | "live"
+  category?: string
+}
+
+// Fonction pour vérifier si le cache est valide en fonction de l'heure
+function isCacheValid(lastUpdated: string): boolean {
+  const now = new Date()
+  const lastUpdate = new Date(lastUpdated)
+  const hourOfDay = now.getHours()
+
+  // Calculer la différence en minutes
+  const diffInMinutes = Math.floor((now.getTime() - lastUpdate.getTime()) / (1000 * 60))
+
+  // Entre 18h (6PM) et 1h du matin, mettre à jour toutes les 30 minutes
+  if ((hourOfDay >= 18 && hourOfDay <= 23) || hourOfDay < 1) {
+    return diffInMinutes < 30
+  }
+
+  // Le reste de la journée, mettre à jour toutes les 2 heures (120 minutes)
+  return diffInMinutes < 120
+}
+
+// Map des identifiants de cache strings vers des nombres
+const CACHE_ID_MAP = {
+  upcoming: 1,
+  live: 2,
+  upcoming_football: 3,
+  live_football: 4,
+  upcoming_basketball: 5,
+  live_basketball: 6,
+  upcoming_tennis: 7,
+  live_tennis: 8,
+  upcoming_fighting: 9,
+  live_fighting: 10,
+  upcoming_esports: 11,
+  live_esports: 12
+}
+
+// Fonction pour obtenir l'ID numérique du cache
+function getCacheNumericId(type: "upcoming" | "live", category?: string): number {
+  const cacheKey = category ? `${type}_${category}` : type
+  const numericId = CACHE_ID_MAP[cacheKey as keyof typeof CACHE_ID_MAP]
+
+  if (!numericId) {
+    // Si l'ID n'existe pas dans le mapping, utiliser une valeur par défaut basée sur un hash simple
+    return stringToNumber(cacheKey)
+  }
+
+  return numericId
+}
+
+// Fonction pour convertir une chaîne en nombre (pour les catégories non prédéfinies)
+function stringToNumber(str: string): number {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i)
+    hash = hash & hash // Convert to 32bit integer
+  }
+  // Assurer que le hash est positif et éloigné des IDs prédéfinis
+  return Math.abs(hash) % 1000000 + 1000
+}
+
+// Fonction pour récupérer les matchs depuis le cache Supabase
+async function getMatchesFromCache(type: "upcoming" | "live", category?: string): Promise<Match[] | null> {
+  try {
+    // Obtenir l'ID numérique du cache
+    const numericCacheId = getCacheNumericId(type, category)
+
+    // Récupérer les données du cache
+    const { data, error } = await supabase
+      .from('match_cache')
+      .select('*')
+      .eq('id', numericCacheId)
+      .maybeSingle()
+
+    if (error || !data) {
+      console.log(`Pas de cache trouvé pour ${type}${category ? '_' + category : ''} (ID: ${numericCacheId}):`, error)
+      return null
+    }
+
+    // Vérifier si le cache est valide
+    if (!isCacheValid(data.last_updated)) {
+      console.log(`Cache expiré pour ${type}${category ? '_' + category : ''} (ID: ${numericCacheId}), dernière mise à jour:`, data.last_updated)
+      return null
+    }
+
+    console.log(`Utilisation du cache pour ${type}${category ? '_' + category : ''} (ID: ${numericCacheId}), dernière mise à jour:`, data.last_updated)
+
+    // Convertir les dates string en objets Date
+    const matches = data.matches.map((match: any) => ({
+      ...match,
+      date: match.date ? new Date(match.date) : undefined
+    }))
+
+    return matches
+  } catch (error) {
+    console.error("Erreur lors de la récupération du cache:", error)
+    return null
+  }
+}
+
+// Fonction pour mettre à jour le cache dans Supabase
+async function updateMatchCache(matches: Match[], type: "upcoming" | "live", category?: string): Promise<void> {
+  try {
+    // Obtenir l'ID numérique du cache
+    const numericCacheId = getCacheNumericId(type, category)
+
+    // Préparer les données pour le stockage
+    // Convertir les objets Date en strings pour le stockage JSON
+    const matchesForStorage = matches.map(match => ({
+      ...match,
+      date: match.date ? match.date.toISOString() : undefined
+    }))
+
+    // Mettre à jour ou insérer dans le cache
+    const { error } = await supabase
+      .from('match_cache')
+      .upsert({
+        id: numericCacheId,
+        matches: matchesForStorage,
+        last_updated: new Date().toISOString(),
+        type,
+        category
+      })
+
+    if (error) {
+      console.error(`Erreur lors de la mise à jour du cache pour ${type}${category ? '_' + category : ''} (ID: ${numericCacheId}):`, error)
+    } else {
+      console.log(`Cache mis à jour pour ${type}${category ? '_' + category : ''} (ID: ${numericCacheId})`)
+    }
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du cache:", error)
+  }
+}
+
 // Mettre en cache les réponses API pour éviter de dépasser les limites de taux
 export const getUpcomingMatches = cache(async (category?: string): Promise<Match[]> => {
   try {
+    // Vérifier d'abord si nous avons des données en cache valides
+    const cachedMatches = await getMatchesFromCache("upcoming", category)
+    if (cachedMatches) {
+      console.log("Utilisation des données en cache pour les matchs à venir")
+      return cachedMatches
+    }
+
+    console.log("Pas de cache valide, appel de l'API pour les matchs à venir")
     console.log("Fetching upcoming matches with API key:", process.env.SPORTS_API_KEY ? "Available" : "Not available")
 
-    // API-FOOTBALL endpoint pour les matchs à venir
-    const response = await fetch("https://v3.football.api-sports.io/fixtures?date=2025-04-10", {
+    // Get the current date in YYYY-MM-DD format
+    const today = new Date();
+    const formattedDate = today.toISOString().split('T')[0];
+
+    // API-FOOTBALL endpoint pour les matchs à venir - changed to use current date
+    const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${formattedDate}`, {
       headers: {
         "x-rapidapi-key": process.env.SPORTS_API_KEY || "",
         "x-rapidapi-host": "v3.football.api-sports.io",
       },
-      next: { revalidate: 1800 }, // Revalider toutes les 30 minutes
     })
 
     if (!response.ok) {
@@ -71,21 +223,56 @@ export const getUpcomingMatches = cache(async (category?: string): Promise<Match
     const now = new Date()
     const upcomingMatches = matches.filter((match) => match.date && match.date >= now)
 
-    // Si une catégorie est spécifiée, filtrer les matchs
-    if (category) {
-      return upcomingMatches.filter((match) => match.category?.toLowerCase() === category.toLowerCase())
-    }
+    // Filtrer par catégorie si nécessaire
+    const filteredMatches = category
+      ? upcomingMatches.filter((match) => match.category?.toLowerCase() === category.toLowerCase())
+      : upcomingMatches
 
-    return upcomingMatches
+    // Mettre à jour le cache avec les nouvelles données
+    await updateMatchCache(filteredMatches, "upcoming", category)
+
+    return filteredMatches
   } catch (error) {
     console.error("Erreur lors de la récupération des matchs à venir:", error)
+
+    // En cas d'erreur, essayer de récupérer les données du cache même si elles sont expirées
+    try {
+      // Obtenir l'ID numérique du cache
+      const numericCacheId = getCacheNumericId("upcoming", category)
+
+      const { data } = await supabase
+        .from('match_cache')
+        .select('*')
+        .eq('id', numericCacheId)
+        .maybeSingle()
+
+      if (data && data.matches) {
+        console.log("Utilisation du cache expiré en cas d'erreur API")
+        return data.matches.map((match: any) => ({
+          ...match,
+          date: match.date ? new Date(match.date) : undefined
+        }))
+      }
+    } catch (cacheError) {
+      console.error("Erreur lors de la récupération du cache de secours:", cacheError)
+    }
+
     return []
   }
 })
 
-// Mise en cache plus longue pour les matchs en direct (10 minutes)
+// Mise en cache plus longue pour les matchs en direct
 export const getLiveMatches = cache(async (category?: string): Promise<Match[]> => {
   try {
+    // Vérifier d'abord si nous avons des données en cache valides
+    // Pour les matchs en direct, nous utilisons un temps de cache plus court
+    const cachedMatches = await getMatchesFromCache("live", category)
+    if (cachedMatches) {
+      console.log("Utilisation des données en cache pour les matchs en direct")
+      return cachedMatches
+    }
+
+    console.log("Pas de cache valide, appel de l'API pour les matchs en direct")
     console.log("Fetching live matches with API key:", process.env.SPORTS_API_KEY ? "Available" : "Not available")
 
     // Vérifier si la clé API est disponible
@@ -100,7 +287,6 @@ export const getLiveMatches = cache(async (category?: string): Promise<Match[]> 
         "x-rapidapi-key": process.env.SPORTS_API_KEY,
         "x-rapidapi-host": "v3.football.api-sports.io",
       },
-      next: { revalidate: 600 }, // Revalider toutes les 10 minutes
     })
 
     if (!response.ok) {
@@ -152,14 +338,40 @@ export const getLiveMatches = cache(async (category?: string): Promise<Match[]> 
       })
       .filter(Boolean) // Filtrer les matchs null
 
-    // Si une catégorie est spécifiée, filtrer les matchs
-    if (category) {
-      return matches.filter((match) => match.category?.toLowerCase() === category.toLowerCase())
-    }
+    // Filtrer par catégorie si nécessaire
+    const filteredMatches = category
+      ? matches.filter((match) => match.category?.toLowerCase() === category.toLowerCase())
+      : matches
 
-    return matches
+    // Mettre à jour le cache avec les nouvelles données
+    await updateMatchCache(filteredMatches, "live", category)
+
+    return filteredMatches
   } catch (error) {
     console.error("Erreur lors de la récupération des matchs en direct:", error)
+
+    // En cas d'erreur, essayer de récupérer les données du cache même si elles sont expirées
+    try {
+      // Obtenir l'ID numérique du cache
+      const numericCacheId = getCacheNumericId("live", category)
+
+      const { data } = await supabase
+        .from('match_cache')
+        .select('*')
+        .eq('id', numericCacheId)
+        .maybeSingle()
+
+      if (data && data.matches) {
+        console.log("Utilisation du cache expiré en cas d'erreur API")
+        return data.matches.map((match: any) => ({
+          ...match,
+          date: match.date ? new Date(match.date) : undefined
+        }))
+      }
+    } catch (cacheError) {
+      console.error("Erreur lors de la récupération du cache de secours:", cacheError)
+    }
+
     return []
   }
 })
@@ -206,16 +418,88 @@ function getSportCategory(leagueId: number, leagueName: string): string {
   return "football"
 }
 
+// Map des identifiants de cache pour les cotes
+function getOddsCacheNumericId(matchId: number): number {
+  // Préfixe pour garantir que l'ID est différent des autres caches
+  return 100000 + matchId
+}
+
+// Fonction pour récupérer les cotes d'un match depuis le cache
+async function getMatchOddsFromCache(matchId: number): Promise<Match["odds"] | null> {
+  try {
+    // Obtenir l'ID numérique du cache
+    const numericCacheId = getOddsCacheNumericId(matchId)
+
+    // Récupérer les données du cache
+    const { data, error } = await supabase
+      .from('match_odds_cache')
+      .select('*')
+      .eq('id', numericCacheId)
+      .maybeSingle()
+
+    if (error || !data) {
+      console.log(`Pas de cache trouvé pour les cotes du match ${matchId} (ID: ${numericCacheId}):`, error)
+      return null
+    }
+
+    // Vérifier si le cache est valide
+    if (!isCacheValid(data.last_updated)) {
+      console.log(`Cache expiré pour les cotes du match ${matchId} (ID: ${numericCacheId}), dernière mise à jour:`, data.last_updated)
+      return null
+    }
+
+    console.log(`Utilisation du cache pour les cotes du match ${matchId} (ID: ${numericCacheId}), dernière mise à jour:`, data.last_updated)
+    return data.odds
+  } catch (error) {
+    console.error("Erreur lors de la récupération du cache des cotes:", error)
+    return null
+  }
+}
+
+// Fonction pour mettre à jour le cache des cotes
+async function updateMatchOddsCache(matchId: number, odds: Match["odds"]): Promise<void> {
+  try {
+    // Obtenir l'ID numérique du cache
+    const numericCacheId = getOddsCacheNumericId(matchId)
+
+    // Mettre à jour ou insérer dans le cache
+    const { error } = await supabase
+      .from('match_odds_cache')
+      .upsert({
+        id: numericCacheId,
+        match_id: matchId,
+        odds: odds,
+        last_updated: new Date().toISOString()
+      })
+
+    if (error) {
+      console.error(`Erreur lors de la mise à jour du cache des cotes pour le match ${matchId} (ID: ${numericCacheId}):`, error)
+    } else {
+      console.log(`Cache des cotes mis à jour pour le match ${matchId} (ID: ${numericCacheId})`)
+    }
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du cache des cotes:", error)
+  }
+}
+
 // Obtenir les cotes pour un match spécifique
 export const getMatchOdds = cache(async (matchId: number): Promise<Match["odds"] | null> => {
   try {
+    // Vérifier d'abord si nous avons des données en cache valides
+    const cachedOdds = await getMatchOddsFromCache(matchId)
+    if (cachedOdds) {
+      console.log(`Utilisation des cotes en cache pour le match ${matchId}`)
+      return cachedOdds
+    }
+
+    console.log(`Pas de cache valide, appel de l'API pour les cotes du match ${matchId}`)
+
     // API-FOOTBALL endpoint pour les cotes
     const response = await fetch(`https://v3.football.api-sports.io/odds?fixture=${matchId}`, {
       headers: {
         "x-rapidapi-key": process.env.SPORTS_API_KEY || "",
         "x-rapidapi-host": "v3.football.api-sports.io",
       },
-      next: { revalidate: 300 }, // Revalider toutes les 5 minutes
     })
 
     if (!response.ok) {
@@ -242,13 +526,38 @@ export const getMatchOdds = cache(async (matchId: number): Promise<Match["odds"]
     const drawOdd = market.values.find((v: any) => v.value === "Draw")?.odd
     const awayOdd = market.values.find((v: any) => v.value === "Away")?.odd
 
-    return {
+    const odds = {
       home: Number.parseFloat(homeOdd) || 2.0,
       draw: Number.parseFloat(drawOdd) || 3.5,
       away: Number.parseFloat(awayOdd) || 4.0,
     }
+
+    // Mettre à jour le cache avec les nouvelles cotes
+    await updateMatchOddsCache(matchId, odds)
+
+    return odds
   } catch (error) {
     console.error("Erreur lors de la récupération des cotes du match:", error)
+
+    // En cas d'erreur, essayer de récupérer les données du cache même si elles sont expirées
+    try {
+      // Obtenir l'ID numérique du cache
+      const numericCacheId = getOddsCacheNumericId(matchId)
+
+      const { data } = await supabase
+        .from('match_odds_cache')
+        .select('*')
+        .eq('id', numericCacheId)
+        .maybeSingle()
+
+      if (data && data.odds) {
+        console.log(`Utilisation du cache expiré des cotes en cas d'erreur API pour le match ${matchId}`)
+        return data.odds
+      }
+    } catch (cacheError) {
+      console.error("Erreur lors de la récupération du cache de secours des cotes:", cacheError)
+    }
+
     return null
   }
 })
