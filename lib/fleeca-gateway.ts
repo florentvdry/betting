@@ -35,9 +35,20 @@ export async function processDeposit(userId: number, characterId: number, amount
     // Type 0 is the only type that exists according to the requirements
     const paymentUrl = `${gatewayUrl}${authKey}/0/${amount}`;
 
-    // Make the request to the Fleeca Gateway
-    const response = await fetch(paymentUrl, {
+    // In the new implementation, the user is redirected to the payment URL
+    // and then returns to the callback page. For the server-side verification,
+    // we need to check the payment status using the token URL.
+
+    // Make the request to the Fleeca Gateway token URL to verify the payment
+    const response = await fetch(tokenUrl, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        auth_key: authKey,
+        amount: amount,
+      }),
     });
 
     // Clone the response to be able to read the body multiple times if needed

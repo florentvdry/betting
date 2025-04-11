@@ -31,6 +31,27 @@ export default function DepositPage() {
     }
   }, [user, currentCharacter, isAuthenticated, isLoading])
 
+  // Check for successful payment return
+  useEffect(() => {
+    // Check if we're returning from a successful payment
+    const successParam = new URLSearchParams(window.location.search).get('success')
+    if (successParam === 'true') {
+      // Show success message
+      toast.success("Votre dépôt a été traité avec succès!")
+
+      // Remove the success parameter from the URL
+      const newUrl = window.location.pathname
+      window.history.replaceState({}, document.title, newUrl)
+
+      // Refresh the balance
+      if (user?.id && currentCharacter?.id) {
+        getUserBankroll(user.id, currentCharacter.id).then(newBalance => {
+          setBalance(newBalance)
+        })
+      }
+    }
+  }, [])
+
   const handleDeposit = async () => {
     if (!user?.id || !currentCharacter?.id) {
       toast.error("Vous devez être connecté pour effectuer un dépôt")
@@ -46,7 +67,8 @@ export default function DepositPage() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch("/api/banking/deposit", {
+      // Get the payment URL from the API
+      const response = await fetch("/api/banking/deposit/create-payment", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -61,19 +83,18 @@ export default function DepositPage() {
       const data = await response.json()
 
       if (data.success) {
-        toast.success(data.message)
-        // Refresh the balance
-        const newBalance = await getUserBankroll(user.id, currentCharacter.id)
-        setBalance(newBalance)
-        // Clear the form
-        setAmount("")
+        // Store the current amount for the success message
+        localStorage.setItem('pendingDepositAmount', depositAmount.toString())
+
+        // Redirect to the Fleeca payment URL
+        window.location.href = data.paymentUrl
       } else {
         toast.error(data.message)
+        setIsSubmitting(false)
       }
     } catch (error) {
       console.error("Deposit error:", error)
       toast.error("Une erreur s'est produite lors du traitement de votre dépôt")
-    } finally {
       setIsSubmitting(false)
     }
   }
