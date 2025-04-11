@@ -36,7 +36,9 @@ export async function processDeposit(userId: number, characterId: number, amount
     const paymentUrl = `${gatewayUrl}${authKey}/0/${amount}`;
 
     // Make the request to the Fleeca Gateway
-    const response = await fetch(paymentUrl);
+    const response = await fetch(paymentUrl, {
+      method: 'POST',
+    });
 
     // Clone the response to be able to read the body multiple times if needed
     const responseClone = response.clone();
