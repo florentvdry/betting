@@ -17,9 +17,9 @@ interface FlecaPaymentResponse {
  * @param userId User ID
  * @param characterId Character ID
  * @param amount Amount to deposit
- * @returns Success status and message
+ * @returns Object containing success status, message, and the server response
  */
-export async function processDeposit(userId: number, characterId: number, amount: number): Promise<{ success: boolean; message: string }> {
+export async function processDeposit(userId: number, characterId: number, amount: number): Promise<{ success: boolean; message: string; response?: any }> {
   try {
     // Get the gateway URLs and auth key from environment variables
     const gatewayUrl = process.env.FLEECA_GATEWAY_URL;
@@ -38,9 +38,29 @@ export async function processDeposit(userId: number, characterId: number, amount
     // Make the request to the Fleeca Gateway
     const response = await fetch(paymentUrl);
 
+    // Clone the response to be able to read the body multiple times if needed
+    const responseClone = response.clone();
+
     if (!response.ok) {
       console.error('Fleeca Gateway error:', response.status, response.statusText);
-      return { success: false, message: 'Payment gateway error' };
+      try {
+        const text = await responseClone.text();
+        return { 
+          success: false, 
+          message: 'Payment gateway error',
+          response: text
+        };
+      } catch (textError) {
+        console.error('Could not read response text:', textError);
+        return { 
+          success: false, 
+          message: 'Payment gateway error',
+          response: { 
+            status: response.status, 
+            statusText: response.statusText 
+          }
+        };
+      }
     }
 
     // Check if the response is JSON
@@ -52,11 +72,19 @@ export async function processDeposit(userId: number, characterId: number, amount
       try {
         const text = await response.text();
         console.error('Response text:', text.substring(0, 200) + '...');
+        return { 
+          success: false, 
+          message: 'Payment gateway returned an invalid response format',
+          response: text
+        };
       } catch (textError) {
         console.error('Could not read response text:', textError);
+        return { 
+          success: false, 
+          message: 'Payment gateway returned an invalid response format',
+          response: { error: 'Could not read response text' }
+        };
       }
-
-      return { success: false, message: 'Payment gateway returned an invalid response format' };
     }
 
     // Parse the response
@@ -65,7 +93,22 @@ export async function processDeposit(userId: number, characterId: number, amount
       data = await response.json();
     } catch (jsonError) {
       console.error('Failed to parse JSON response:', jsonError);
-      return { success: false, message: 'Failed to parse payment gateway response' };
+      // Try to get the text of the response for the response object
+      try {
+        const text = await response.text();
+        return { 
+          success: false, 
+          message: 'Failed to parse payment gateway response',
+          response: text
+        };
+      } catch (textError) {
+        console.error('Could not read response text:', textError);
+        return { 
+          success: false, 
+          message: 'Failed to parse payment gateway response',
+          response: { error: 'Could not read response text' }
+        };
+      }
     }
 
     // Check if the payment was successful
@@ -87,25 +130,29 @@ export async function processDeposit(userId: number, characterId: number, amount
 
         return { 
           success: true, 
-          message: `Deposit of $${amount} was successful. Your new balance is $${newBalance}.` 
+          message: `Deposit of $${amount} was successful. Your new balance is $${newBalance}.`,
+          response: data
         };
       } else {
         return { 
           success: false, 
-          message: 'Payment was processed but there was an error updating your balance.' 
+          message: 'Payment was processed but there was an error updating your balance.',
+          response: data
         };
       }
     } else {
       return { 
         success: false, 
-        message: `Payment failed: ${data.message}` 
+        message: `Payment failed: ${data.message}`,
+        response: data
       };
     }
   } catch (error) {
     console.error('Error processing deposit:', error);
     return { 
       success: false, 
-      message: 'An unexpected error occurred while processing your deposit.' 
+      message: 'An unexpected error occurred while processing your deposit.',
+      response: { error: error instanceof Error ? error.message : String(error) }
     };
   }
 }
